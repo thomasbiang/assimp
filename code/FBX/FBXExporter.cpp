@@ -68,6 +68,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <array>
 #include <unordered_set>
 
+#include <iostream> //wangyi
+
 // RESOURCES:
 // https://code.blender.org/2013/08/fbx-binary-file-format-specification/
 // https://wiki.blender.org/index.php/User:Mont29/Foundation/FBX_File_Structure
@@ -1618,6 +1620,17 @@ void FBXExporter::WriteObjects ()
     // which will be used later to mark them as type "limbNode".
     std::unordered_set<const aiNode*> limbnodes;
     // and a map of nodes by bone name, as finding them is annoying.
+    
+    //wangyi
+    std::set<std::string> setAllBoneNamesInScene;
+    for(int m = 0; m < mScene->mNumMeshes; ++ m)
+    {
+        aiMesh* pMesh = mScene->mMeshes[m];
+        for(int b = 0; b < pMesh->mNumBones; ++ b)
+            setAllBoneNamesInScene.insert(pMesh->mBones[b]->mName.data);
+    }
+    //end of wangyi
+    
     std::map<std::string,aiNode*> node_by_bone;
     for (size_t mi = 0; mi < mScene->mNumMeshes; ++mi) {
         const aiMesh* m = mScene->mMeshes[mi];
@@ -1660,6 +1673,19 @@ void FBXExporter::WriteObjects ()
                 if (node_name.find(MAGIC_NODE_TAG) != std::string::npos) {
                     continue;
                 }
+                
+                //wangyi
+                if(setAllBoneNamesInScene.find(node_name)==setAllBoneNamesInScene.end())
+                {
+                    aiMatrix4x4 mxId(1, 0, 0, 0,
+                                     0, 1, 0, 0,
+                                     0, 0, 1, 0,
+                                     0, 0, 0, 1);
+                    if(parent->mTransformation == mxId)
+                        continue;
+                }
+                //end of wangyi
+                
                 // otherwise check if this is the root of the skeleton
                 bool end = false;
                 // is the mesh part of this node?
@@ -1827,8 +1853,21 @@ void FBXExporter::WriteObjects ()
             const float epsilon = 1e-4f; // some error is to be expected
             bool bone_xform_okay = true;
             if (b && ! tr.Equal(b->mOffsetMatrix, epsilon)) {
-                not_in_bind_pose.insert(b);
-                bone_xform_okay = false;
+                
+                // wangyi: trust the bind pose
+                // not_in_bind_pose.insert(b);
+                // bone_xform_okay = false;
+                
+                std::cout << "bone " << b->mName.data << " on mesh " << mesh_node->mName.data << " diff " << std::endl;
+                std::cout << "... tr[" << tr.a1 << "," << tr.a2 << "," << tr.a3 << "," << tr.a4 << "]" << std::endl
+                << "...   " << tr.b1 << "," << tr.b2 << "," << tr.b3 << "," << tr.b4 << std::endl
+                << "...   " << tr.c1 << "," << tr.c2 << "," << tr.c3 << "," << tr.c4 << std::endl
+                << "...   " << tr.d1 << "," << tr.d2 << "," << tr.d3 << "," << tr.d4 << "]" << std::endl ;
+                std::cout << "... bm[" << b->mOffsetMatrix.a1 << "," << b->mOffsetMatrix.a2 << "," << b->mOffsetMatrix.a3 << "," << b->mOffsetMatrix.a4 << "]" << std::endl
+                << "...   " << b->mOffsetMatrix.b1 << "," << b->mOffsetMatrix.b2 << "," << b->mOffsetMatrix.b3 << "," << b->mOffsetMatrix.b4 << std::endl
+                << "...   " << b->mOffsetMatrix.c1 << "," << b->mOffsetMatrix.c2 << "," << b->mOffsetMatrix.c3 << "," << b->mOffsetMatrix.c4 << std::endl
+                << "...   " << b->mOffsetMatrix.d1 << "," << b->mOffsetMatrix.d2 << "," << b->mOffsetMatrix.d3 << "," << b->mOffsetMatrix.d4 << "]" << std::endl ;
+                std::cout << std::endl;
             }
 
             // if we have a bone we should use the mOffsetMatrix,
