@@ -69,6 +69,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unordered_set>
 
 #include <iostream> //wangyi
+#include <numeric>//wangyi iota
 
 // RESOURCES:
 // https://code.blender.org/2013/08/fbx-binary-file-format-specification/
@@ -1007,6 +1008,10 @@ void FBXExporter::WriteObjects ()
     object_node.EndProperties(outstream, binary, indent);
     object_node.BeginChildren(outstream, binary, indent);
 
+    //wangyi 0812:
+    bool bJoinIdenticalVertices = mProperties->GetPropertyBool("bJoinIdenticalVertices", true);
+    std::vector<std::vector<int32_t>> vVertexIndice;//let's save vertex_indices as it is needed later
+
     // geometry (aiMesh)
     mesh_uids.clear();
     indent = 1;
@@ -1027,27 +1032,39 @@ void FBXExporter::WriteObjects ()
         n.BeginChildren(outstream, binary, indent);
         indent = 2;
 
-        // output vertex data - each vertex should be unique (probably)
-        std::vector<double> flattened_vertices;
-        // index of original vertex in vertex data vector
-        std::vector<int32_t> vertex_indices;
-        // map of vertex value to its index in the data vector
-        std::map<aiVector3D,size_t> index_by_vertex_value;
-        int32_t index = 0;
-        for (size_t vi = 0; vi < m->mNumVertices; ++vi) {
-            aiVector3D vtx = m->mVertices[vi];
-            auto elem = index_by_vertex_value.find(vtx);
-            if (elem == index_by_vertex_value.end()) {
-                vertex_indices.push_back(index);
-                index_by_vertex_value[vtx] = index;
-                flattened_vertices.push_back(vtx[0]);
-                flattened_vertices.push_back(vtx[1]);
-                flattened_vertices.push_back(vtx[2]);
-                ++index;
-            } else {
-                vertex_indices.push_back(int32_t(elem->second));
+        //wangyi 0812
+        std::vector<double> flattened_vertices; // index of original vertex in vertex data vector
+        std::vector<int32_t> vertex_indices; // map of vertex value to its index in the data vector
+        if(bJoinIdenticalVertices) { // output vertex data - each vertex should be unique (probably)
+            std::map<aiVector3D,size_t> index_by_vertex_value;
+            int32_t index = 0;
+            for (size_t vi = 0; vi < m->mNumVertices; ++vi) {
+                aiVector3D vtx = m->mVertices[vi];
+                auto elem = index_by_vertex_value.find(vtx);
+                if (elem == index_by_vertex_value.end()) {
+                    vertex_indices.push_back(index);
+                    index_by_vertex_value[vtx] = index;
+                    flattened_vertices.push_back(vtx[0]);
+                    flattened_vertices.push_back(vtx[1]);
+                    flattened_vertices.push_back(vtx[2]);
+                    ++index;
+                } else {
+                    vertex_indices.push_back(int32_t(elem->second));
+                }
             }
         }
+        else { // do not join vertex, respect the export flag
+            vertex_indices.resize(m->mNumVertices);
+            std::iota(vertex_indices.begin(), vertex_indices.end(), 0);
+            for(unsigned int v = 0; v < m->mNumVertices; ++ v) {
+                aiVector3D vtx = m->mVertices[v];
+                flattened_vertices.push_back(vtx.x);
+                flattened_vertices.push_back(vtx.y);
+                flattened_vertices.push_back(vtx.z);
+            }
+        }
+        vVertexIndice.push_back(vertex_indices);
+
         FBX::Node::WritePropertyNode(
             "Vertices", flattened_vertices, outstream, binary, indent
         );
@@ -1220,6 +1237,17 @@ void FBXExporter::WriteObjects ()
         le.AddChild("TypedIndex", int32_t(0));
         layer.AddChild(le);
         layer.Dump(outstream, binary, indent);
+        //wangyi
+        for(unsigned int lr = 1; lr < m->GetNumUVChannels(); ++ lr)
+        {
+            FBX::Node layer2("Layer", int32_t(1));
+            layer2.AddChild("Version", int32_t(100));
+            FBX::Node le2("LayerElement");
+            le2.AddChild("Type", "LayerElementUV");
+            le2.AddChild("TypedIndex", int32_t(lr));
+            layer2.AddChild(le2);
+            layer2.Dump(outstream, binary, indent);
+        }
 
         // finish the node record
         indent = 1;
@@ -1748,30 +1776,8 @@ void FBXExporter::WriteObjects ()
 
         // connect it
         connections.emplace_back("C", "OO", deformer_uid, mesh_uids[mi]);
-
-        // we will be indexing by vertex...
-        // but there might be a different number of "vertices"
-        // between assimp and our output FBX.
-        // this code is cut-and-pasted from the geometry section above...
-        // ideally this should not be so.
-        // ---
-        // index of original vertex in vertex data vector
-        std::vector<int32_t> vertex_indices;
-        // map of vertex value to its index in the data vector
-        std::map<aiVector3D,size_t> index_by_vertex_value;
-        int32_t index = 0;
-        for (size_t vi = 0; vi < m->mNumVertices; ++vi) {
-            aiVector3D vtx = m->mVertices[vi];
-            auto elem = index_by_vertex_value.find(vtx);
-            if (elem == index_by_vertex_value.end()) {
-                vertex_indices.push_back(index);
-                index_by_vertex_value[vtx] = index;
-                ++index;
-            } else {
-                vertex_indices.push_back(int32_t(elem->second));
-            }
-        }
-
+        std::vector<int32_t>& vertex_indices = vVertexIndice[mi];//consistent with vertex geo
+       
         // TODO, FIXME: this won't work if anything is not in the bind pose.
         // for now if such a situation is detected, we throw an exception.
         std::set<const aiBone*> not_in_bind_pose;
