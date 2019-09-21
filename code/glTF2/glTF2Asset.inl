@@ -536,7 +536,17 @@ inline void Buffer::Grow(size_t amount)
 
     // Shift operation is standard way to divide integer by 2, it doesn't cast it to float back and forth, also works for odd numbers,
     // originally it would look like: static_cast<size_t>(capacity * 1.5f)
-    capacity = std::max(capacity + (capacity >> 1), byteLength + amount);
+    if(capacity * 1.5f > byteLength+amount)
+    {
+        //capacity = capacity * 1.5f;
+    }
+    else
+    {
+        //capacity = static_cast<size_t>(byteLength+amount);
+    }
+    capacity = static_cast<size_t>(byteLength+amount);
+    //wangyi std::max(capacity + (capacity >> 1), byteLength + amount);
+    
 
     uint8_t* b = new uint8_t[capacity];
     if (mData) memcpy(b, mData.get(), byteLength);

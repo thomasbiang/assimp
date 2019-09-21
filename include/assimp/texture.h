@@ -214,7 +214,7 @@ struct aiTexture {
 
     // Destruction
     ~aiTexture () {
-        delete[] pcData;
+        //wangyi delete[] pcData;
     }
 #endif
 };

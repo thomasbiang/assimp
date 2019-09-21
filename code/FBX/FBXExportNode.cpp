@@ -54,6 +54,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sstream> // ostringstream
 #include <memory> // shared_ptr
 
+
 namespace Assimp {
 // AddP70<type> helpers... there's no usable pattern here,
 // so all are defined as separate functions.
@@ -452,7 +453,11 @@ void FBX::Node::WritePropertyNodeAscii(
             // this should never happen
             throw DeadlyExportError("failed to convert double to string");
         }
-        for (int j = 0; j < len; ++j) { s.PutChar(buffer[j]); }
+        
+        for (int j = 0; j < len; ++j)
+        {
+            s.PutChar(buffer[j]);
+        }
     }
     // }
     s.PutChar('\n');

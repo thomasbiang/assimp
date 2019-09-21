@@ -1178,20 +1178,25 @@ void FBXExporter::WriteObjects ()
             std::vector<int32_t> uv_indices;
             std::map<aiVector3D,int32_t> index_by_uv;
             int32_t index = 0;
-            for (size_t fi = 0; fi < m->mNumFaces; ++fi) {
+            for (size_t fi = 0; fi < m->mNumFaces; ++fi)
+            {
                 const aiFace &f = m->mFaces[fi];
-                for (size_t pvi = 0; pvi < f.mNumIndices; ++pvi) {
-                    const aiVector3D &uv =
-                        m->mTextureCoords[uvi][f.mIndices[pvi]];
+                for (size_t pvi = 0; pvi < f.mNumIndices; ++pvi)
+                {
+                    const aiVector3D &uv = m->mTextureCoords[uvi][f.mIndices[pvi]];
                     auto elem = index_by_uv.find(uv);
-                    if (elem == index_by_uv.end()) {
+                    if (elem == index_by_uv.end())
+                    {
                         index_by_uv[uv] = index;
                         uv_indices.push_back(index);
-                        for (unsigned int x = 0; x < m->mNumUVComponents[uvi]; ++x) {
+                        for (unsigned int x = 0; x < m->mNumUVComponents[uvi]; ++x)
+                        {
                             uv_data.push_back(uv[x]);
                         }
                         ++index;
-                    } else {
+                    }
+                    else
+                    {
                         uv_indices.push_back(elem->second);
                     }
                 }
@@ -1239,13 +1244,58 @@ void FBXExporter::WriteObjects ()
 
         for(unsigned int lr = 1; lr < m->GetNumUVChannels(); ++ lr)
         {
-            FBX::Node layerExtra("Layer", int32_t(1));
+            FBX::Node layerExtra("Layer", int32_t(lr));
             layerExtra.AddChild("Version", int32_t(100));
             FBX::Node leExtra("LayerElement");
             leExtra.AddChild("Type", "LayerElementUV");
             leExtra.AddChild("TypedIndex", int32_t(lr));
             layerExtra.AddChild(leExtra);
             layerExtra.Dump(outstream, binary, indent);
+            
+            /*FBX::Node::WritePropertyNode("Layer", int32_t(1), outstream, binary, indent);
+            FBX::Node::WritePropertyNode("Version", int32_t(100), outstream, binary, indent+1);
+            FBX::Node::WritePropertyNode("LayerElement", int32_t(0), outstream, binary, indent+1);
+            FBX::Node::WritePropertyNode("Type", "LayerElementUV", outstream, binary, indent+2);
+            FBX::Node::WritePropertyNode("TypedIndex", int32_t(lr), outstream, binary, indent+2);*/
+            
+            /*/uv actual value
+            std::vector<double> uv_data;
+            std::vector<int32_t> uv_indices;
+            std::map<aiVector3D,int32_t> index_by_uv;
+            int32_t index = 0;
+            for (size_t fi = 0; fi < m->mNumFaces; ++fi)
+            {
+                const aiFace &f = m->mFaces[fi];
+                for (size_t pvi = 0; pvi < f.mNumIndices; ++pvi)
+                {
+                    const aiVector3D &uv = m->mTextureCoords[lr][f.mIndices[pvi]];
+                    auto elem = index_by_uv.find(uv);
+                    if (elem == index_by_uv.end())
+                    {
+                        if(strcmp(m->mName.data, "C_shoe_GEO")==0 && lr == 1)
+                            std::cout << " at == index_by_uv.end() " << std::endl;
+                        index_by_uv[uv] = index;
+                        uv_indices.push_back(index);
+                        for (unsigned int x = 0; x < m->mNumUVComponents[lr]; ++x)
+                        {
+                            uv_data.push_back(uv[x]);
+                        }
+                        ++index;
+                    }
+                    else
+                    {
+                        if(strcmp(m->mName.data, "C_shoe_GEO")==0 && lr == 1)
+                        {
+                            std::cout << " at else " << std::endl;
+                            std::cout << "elem[" << pvi << "]: " << elem->first.x << "," << elem->first.y << "," << elem->first.z << std::endl;
+                            std::cout << "uv[" << pvi << "]: " << uv.x << "," << uv.y << "," << uv.z << std::endl;
+                        }
+                        uv_indices.push_back(elem->second);
+                    }
+                }
+            }
+            FBX::Node::WritePropertyNode("UV", uv_data, outstream, binary, indent+1);
+            FBX::Node::WritePropertyNode("UVIndex", uv_indices, outstream, binary, indent+1);*/
         }
         // finish the node record
         indent = 1;
